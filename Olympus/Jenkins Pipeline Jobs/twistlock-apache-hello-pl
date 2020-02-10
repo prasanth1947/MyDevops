@@ -1,0 +1,41 @@
+node {
+   stage('Preparation') {
+       // for display purposes
+       echo "Preparing"
+   }
+
+   stage('Build') {
+       // Build an image for scanning
+       sh 'echo "FROM ubuntu:18.04" > Dockerfile'
+       sh 'echo "MAINTAINER Prasantha Annamreddy <pannamreddy@dxc.com>" >> Dockerfile'
+       sh 'echo "RUN mkdir -p /tmp/test/dir" >> Dockerfile'
+       sh 'docker build --no-cache -t 219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello .'
+   }
+
+  stage('Scan') {
+    twistlockScan ca: '',
+      cert: '',
+      compliancePolicy: 'critical',
+      dockerAddress: 'unix:///var/run/docker.sock',
+      gracePeriodDays: 0,
+      ignoreImageBuildTime: true,
+      image: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello',
+      key: '',
+      logLevel: 'true',
+      policy: 'warn',
+      requirePackageUpdate: false,
+      timeout: 10
+    }
+
+  stage('Publish') {
+     twistlockPublish ca: '',
+        cert: '',
+        dockerAddress: 'unix:///var/run/docker.sock',
+        ignoreImageBuildTime: true,
+        image: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello',
+        key: '',
+        logLevel: 'true',
+        timeout: 10
+
+        }
+}

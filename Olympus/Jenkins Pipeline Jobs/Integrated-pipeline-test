@@ -1,0 +1,111 @@
+node {
+    
+   stage('Preparation') {
+       // for display purposes
+       echo "Preparing"
+   }
+   
+   stage('Source') {
+		// Get the code from Repositroy
+       echo "Pulling the Code from Repository"
+   }
+   
+    stage('Compile') {
+		// Compile the code 
+       echo "Compiling the code"
+   }
+
+   stage('Build the code') {
+       // Build the code
+       echo "building the compiled code"
+   }
+   
+   stage('Unit Testing') {
+       // Unit Testing for the built the Code
+       echo "Performing the Unit Testing for the built the Code"
+   }
+   
+   stage('Code Analysis') {
+       // Analys the code using code analsys tool
+       echo "Analysing the Code"
+   }
+   
+   stage('Build an Image') {
+       // Build an image for scanning
+       echo "building the image to scan it using scanning tool"
+   }
+
+  stage('Twistlock Scan') {
+  
+   // Scan an image with Twistlock
+   echo "Scanning an image with Twistlock"
+  
+    twistlockScan ca: '',
+      cert: '',
+      compliancePolicy: 'critical',
+      dockerAddress: 'unix:///var/run/docker.sock',
+      gracePeriodDays: 0,
+      ignoreImageBuildTime: true,
+      image: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello',
+      key: '',
+      logLevel: 'true',
+      policy: 'warn',
+      requirePackageUpdate: false,
+      timeout: 10
+    }
+
+  stage('Publish Twistlock Scan results') {
+    
+     // Publish the scan results from Twistlock
+       echo "Publishing the scan results from Twistlock"
+	   
+     twistlockPublish ca: '',
+        cert: '',
+        dockerAddress: 'unix:///var/run/docker.sock',
+        ignoreImageBuildTime: true,
+        image: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello',
+        key: '',
+        logLevel: 'true',
+        timeout: 10
+
+        }
+   
+	
+  stage('Aqua Scan') {
+  
+    // Scan an image with Aqua Scan
+       echo "Scanning an image with Aqua"
+	   
+	    aqua customFlags: '', hideBase: false, hostedImage: '', localImage: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello', locationType: 'local', notCompliesCmd: '', onDisallowed: 'ignore', policies: '', register: false, registry: '', showNegligible: false
+    }
+
+  stage('Aqua Scan ') {
+  
+     // Publish the scan results from Aqua
+       echo "Publishing the scan results from Aqua"
+        }
+  
+  stage('Push') {
+  
+     // Pushing containers
+     echo "Publishing docker containers into Registry"
+      }
+  stage('Deploy to Test') {
+  
+     // Deploy to test env
+     
+      }
+
+  stage('Deploy to Intergration Env') {
+  
+     // Deploy to Intergration env
+     echo "Deploying into Intergration environment"
+      }  
+	  
+  stage('Deploy to Stage Env') {
+  
+     // Deploy to Staging env
+     echo "Deploying into Stage environment"
+      }  
+  
+}

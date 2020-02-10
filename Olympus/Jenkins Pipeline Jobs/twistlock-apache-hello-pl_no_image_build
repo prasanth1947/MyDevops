@@ -1,0 +1,33 @@
+node {
+   stage('Preparation') {
+       // for display purposes
+       echo "Preparing"
+   }
+
+  stage('Scan') {
+    twistlockScan ca: '',
+      cert: '',
+      compliancePolicy: 'critical',
+      dockerAddress: 'unix:///var/run/docker.sock',
+      gracePeriodDays: 0,
+      ignoreImageBuildTime: true,
+      image: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello',
+      key: '',
+      logLevel: 'true',
+      policy: 'warn',
+      requirePackageUpdate: false,
+      timeout: 10
+    }
+
+  stage('Publish') {
+     twistlockPublish ca: '',
+        cert: '',
+        dockerAddress: 'unix:///var/run/docker.sock',
+        ignoreImageBuildTime: true,
+        image: '219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository:apache-hello',
+        key: '',
+        logLevel: 'true',
+        timeout: 10
+
+        }
+}

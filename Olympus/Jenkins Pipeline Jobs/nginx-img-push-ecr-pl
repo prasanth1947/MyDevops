@@ -1,0 +1,52 @@
+node {
+   stage('Preparation') {
+       // for display purposes
+       echo "Preparing"
+   }
+
+   stage('Build') {
+       // Build an image for scanning
+       sh 'echo "FROM ubuntu:14.04" > Dockerfile'
+       sh 'echo "MAINTAINER Prasantha Annamreddy <pannamreddy@dxc.com>" >> Dockerfile'
+       sh 'echo "RUN mkdir -p /tmp/test/dir" >> Dockerfile'
+       sh 'docker build --no-cache -t nginx:1.7.9 .'
+   }
+
+  stage('Scan') {
+    twistlockScan ca: '',
+      cert: '',
+      compliancePolicy: 'critical',
+      dockerAddress: 'unix:///var/run/docker.sock',
+      gracePeriodDays: 0,
+      ignoreImageBuildTime: true,
+      image: 'nginx:1.7.9',
+      key: '',
+      logLevel: 'true',
+      policy: 'warn',
+      requirePackageUpdate: false,
+      timeout: 10
+    }
+
+  stage('Publish') {
+     twistlockPublish ca: '',
+        cert: '',
+        dockerAddress: 'unix:///var/run/docker.sock',
+        ignoreImageBuildTime: true,
+        image: 'nginx:1.7.9',
+        key: '',
+        logLevel: 'true',
+        timeout: 10
+
+        }
+ stage('Push') {
+     
+     echo "Publishing docker containers"
+     sh "\$(aws ecr get-login --region eu-west-2 --no-include-email)"
+     
+      sh "docker tag nginx:1.7.9 219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository"
+      sh "docker push 219188210229.dkr.ecr.eu-west-2.amazonaws.com/ocs-repository"
+
+
+        }
+    
+}

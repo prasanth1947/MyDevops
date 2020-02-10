@@ -1,0 +1,49 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Creates a stack to deploy the IAM Role needed for EKS
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: EKS
+        Parameters:
+          - EKSRoleName
+    ParameterLabels:
+      EKSRoleName:
+        default: EKS IAM Role Name
+
+Parameters:
+  EKSRoleName:
+    Description: Name of the EKS IAM Role to create within your AWS account.
+                 Use only alphanumeric characters and/or the following +=,.@_-
+    Type: String
+    Default: 'EKSRole'
+
+Resources:
+  EKSIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+        - "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
+      RoleName: !Sub ${EKSRoleName}
+      # Description: Cross Account IAM Role for ParkMyCloud created by CloudFormation template
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "eks.amazonaws.com" 
+            Action: 
+                - "sts:AssumeRole"
+
+Outputs:
+  RoleArn:
+    Description: The ARN of the EKS IAM role
+    Value: !GetAtt [EKSIAMRole, Arn]
+

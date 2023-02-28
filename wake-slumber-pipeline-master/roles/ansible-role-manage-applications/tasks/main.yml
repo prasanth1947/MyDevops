@@ -1,0 +1,22 @@
+---
+# tasks file for ansible-role-manage-applications
+
+- ec2_instance_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    filters:
+      "tag:client-name": "*{{ client_name }}*"
+      "tag:Name": "*{{ application }}*"
+      "tag:environment": "*{{ env }}*"
+  register: ec2_instances
+
+- set_fact:
+    instance_ids: "{{ ec2_instances.instances | sort_nested_dict('Name') | json_query( '[*].instance_id' ) }}"
+
+- include: "{{ operation }}_appliance.yml"
+  with_items:
+    - "{{ instance_ids }}"
+  loop_control:
+    loop_var: instance_id
+  when: instance_ids is defined

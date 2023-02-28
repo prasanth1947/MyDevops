@@ -1,0 +1,4 @@
+---
+# tasks file for ansible-role-oc-status
+
+- include: "{{ operation }}_status.yml"

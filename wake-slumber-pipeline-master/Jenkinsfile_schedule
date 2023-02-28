@@ -1,0 +1,36 @@
+pipeline {
+    agent {
+        node {
+                label 'ansible-slave'
+                customWorkspace "${env.JobPath}"
+              }
+    }
+    stages {
+        stage ('Invoke Slumber Pipeline') {
+            steps {
+                script {
+                    def list = new GroovyShell().evaluate("${array_list}")
+                    for (int i = 0; i < list.size(); ++i) {
+                        build job: 'Hibernate and Wake Environments', wait: true, parameters: [
+                        string(name: 'OPERATION', value: list[i][0]),
+                        string(name: 'ENVIRONMENT', value: list[i][1]),
+                        string(name: 'REGION', value: list[i][2]),
+                        string(name: 'CLIENT', value: list[i][3]),
+                        string(name: 'CLIENT_NAME', value: list[i][4]),
+                        [$class: 'BooleanParameterValue', name: 'hadoop_ambari_processes', value: list[i][5]],
+                        [$class: 'BooleanParameterValue', name: 'hadoop_ambari', value: list[i][6]],
+                        [$class: 'BooleanParameterValue', name: 'hadoop_gateway', value: list[i][7]],
+                        [$class: 'BooleanParameterValue', name: 'hadoop_master', value: list[i][8]],
+                        [$class: 'BooleanParameterValue', name: 'openshift_master', value: list[i][9]],
+                        [$class: 'BooleanParameterValue', name: 'openshift_worker', value: list[i][10]],
+                        [$class: 'BooleanParameterValue', name: 'openshift_worker', value: list[i][11]],
+                        string(name: 'OC_HOST', value: list[i][12]),
+                        string(name: 'OC_USER', value: list[i][13]),
+                        string(name: 'OC_PASS', value: list[i][14])
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

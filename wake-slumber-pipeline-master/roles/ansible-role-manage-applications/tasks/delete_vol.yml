@@ -1,0 +1,24 @@
+---
+
+# Remove a volume
+- name: "Delete volume - {{ instance_vol.tags.Name }}"
+  ec2_vol:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    id: "{{ instance_vol.id }}"
+    state: absent
+  when:
+    - "instance_vol.status == 'available'"
+
+- name: Recursively check the status of the volume to ensure successful deletion
+  ec2_vol_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    filters:
+      volume-id: "{{ instance_vol.id }}"
+  register: delete_vol_info
+  until: "delete_vol_info.volumes[0].status is not defined"
+  retries: 60
+  delay: 15

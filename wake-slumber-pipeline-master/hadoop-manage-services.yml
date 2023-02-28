@@ -1,0 +1,8 @@
+---
+
+- name: FCII | Hadoop | Start/Stop services
+  hosts: localhost
+  gather_facts: False
+
+  roles:
+    - ansible-role-hadoop-manage-services

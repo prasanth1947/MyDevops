@@ -1,0 +1,132 @@
+def APPS_TO_MANAGE = []
+
+pipeline {
+
+    // Use ansible slave
+    agent { node { label 'ansible-slave' } }
+
+    options { ansiColor('xterm') }
+    
+    stages {
+        stage('Stop Hadoop Processes') {
+            steps {
+                script {
+                    if(OPERATION == "hibernate" && hadoop_ambari == "true" && hadoop_ambari_processes == "true") {
+                        echo "\u001B[31m" + OPERATION.capitalize() + " hadoop services."
+                        
+                        withCredentials( [ usernamePassword(credentialsId: "aws_${CLIENT}", passwordVariable: 'SECRET_ACCESS_KEY', usernameVariable: 'ACCESS_KEY_ID') ] ) {
+                            ansiblePlaybook(
+                                installation: "Ansible",
+                                playbook: '${WORKSPACE}/hadoop-manage-services.yml',
+                                colorized: true,
+                                extras: "-vvv",
+                                extraVars: [
+                                    access_key_id: "$ACCESS_KEY_ID",
+                                    secret_access_key: "$SECRET_ACCESS_KEY",
+                                    region: "$REGION",
+                                    client_name: "$CLIENT_NAME",
+                                    env: "$ENVIRONMENT",
+                                    application: "hadoop-ambari",
+                                    operation: "$OPERATION"
+                                ]
+                            ) // ansiblePlaybook
+                        } // withCredentials
+                    } // if
+                } // script
+            } // steps
+        } // stage
+        stage('Execute Ansible Playbooks') {
+            steps {
+                script {
+                    if( OPERATION == "hibernate" ) {
+                        APPS_TO_MANAGE = [ [ "hadoop-ambari", hadoop_ambari ], [ "hadoop-gateway", hadoop_gateway ], [ "hadoop-master", hadoop_master ], [ "openshift-worker", openshift_worker ], [ "openshift-master", openshift_master ] ]
+                    } else {
+                        APPS_TO_MANAGE = [ [ "hadoop-ambari", hadoop_ambari ], [ "hadoop-gateway", hadoop_gateway ], [ "hadoop-master", hadoop_master ], [ "openshift-master", openshift_master ], ["wait", "wait"],  [ "openshift-worker", openshift_worker ] ]
+                    }
+
+                    for (int i = 0; i < APPS_TO_MANAGE.size(); ++i) {
+                        if(APPS_TO_MANAGE[i][1] == "true") {
+                            stage ( OPERATION.capitalize() + " " + APPS_TO_MANAGE[i][0].capitalize() + " instances." ) {
+                                echo "\u001B[31mStarting to " + OPERATION + " " + APPS_TO_MANAGE[i][0] + " instances."
+                                
+                                withCredentials( [ usernamePassword(credentialsId: "aws_${CLIENT}", passwordVariable: 'SECRET_ACCESS_KEY', usernameVariable: 'ACCESS_KEY_ID') ] ) {
+                                    ansiblePlaybook(
+                                        installation: "Ansible",
+                                        playbook: '${WORKSPACE}/application-lifecycle.yml',
+                                        colorized: true,
+                                        extras: "-vvv",
+                                        extraVars: [
+                                            access_key_id: "$ACCESS_KEY_ID",
+                                            secret_access_key: "$SECRET_ACCESS_KEY",
+                                            region: "$REGION",
+                                            client_name: "$CLIENT_NAME",
+                                            env: "$ENVIRONMENT",
+                                            application: APPS_TO_MANAGE[i][0],
+                                            operation: "$OPERATION",
+                                            move_storage: "$move_storage"
+                                        ]
+                                    )
+                                }
+                            }
+                        } else if (APPS_TO_MANAGE[i][1] == "wait") {
+                            def time = 600
+                            echo "Waiting ${time} for Openshift Master nodes to start prior to starting Openshift Worker nodes."
+                            sleep time.toInteger() // seconds
+                        } else {
+                            echo "Skipping " + APPS_TO_MANAGE[i][0] + " instances.."
+                        }
+                    } // for
+                } // script
+            } // steps
+        } // stage
+        stage( 'Start Hadoop Processes' ) {
+            steps {
+                script {
+                    if(OPERATION == "wake" && hadoop_ambari == "true" && hadoop_ambari_processes == "true") {
+                        echo "\u001B[31m" + OPERATION.capitalize() + " hadoop services."
+                        
+                        withCredentials( [ usernamePassword(credentialsId: "aws_${CLIENT}", passwordVariable: 'SECRET_ACCESS_KEY', usernameVariable: 'ACCESS_KEY_ID') ] ) {
+                            ansiblePlaybook(
+                                installation: "Ansible",
+                                playbook: '${WORKSPACE}/hadoop-manage-services.yml',
+                                colorized: true,
+                                extras: "-vvv",
+                                extraVars: [
+                                    access_key_id: "$ACCESS_KEY_ID",
+                                    secret_access_key: "$SECRET_ACCESS_KEY",
+                                    region: "$REGION",
+                                    client_name: "$CLIENT_NAME",
+                                    env: "$ENVIRONMENT",
+                                    application: "hadoop-ambari",
+                                    operation: "$OPERATION"
+                                ]
+                            ) // ansiblePlaybook
+                        } // withCredentials
+                    } // if
+                } // script
+            } // steps
+        } // stage
+        stage('Execute Ansible Playbooks - Openshift') {
+            steps {
+                script {
+                    if( OPERATION == "wake" && openshift_master == "true" && openshift_worker == "true" ) {
+                        stage ( "Check Openshift Status" ) {
+                            ansiblePlaybook(
+                                installation: "Ansible",
+                                playbook: '${WORKSPACE}/openshift-status.yml',
+                                colorized: true,
+                                extras: "-vvv",
+                                extraVars: [
+                                    oc_host: "$OC_HOST",
+                                    oc_user: "$OC_USER",
+                                    oc_pass: "$OC_PASS",
+                                    operation: "$OPERATION"
+                                ]
+                            ) // ansiblePlaybook
+                        } // stage
+                    } // if
+                } // script
+            } // steps
+        } // stage
+    }
+}

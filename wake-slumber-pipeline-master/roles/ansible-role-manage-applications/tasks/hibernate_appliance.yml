@@ -1,0 +1,54 @@
+---
+
+- name: "Stop Instances {{ instance_id }}"
+  ec2:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    instance_ids: "{{ instance_id }}"
+    state: stopped
+    wait: True
+  register: result
+
+- name: "Move storage - {{ instance_id }}"
+  block:
+    - set_fact:
+        instance_vol_ids: "{{ instance_vol_ids | default([]) + [ item.value.volume_id ] }}"
+      with_dict: "{{ result.instances[0].block_device_mapping }}"
+
+    - include: create_snapshot.yml
+      with_items:
+        - "{{ instance_vol_ids }}"
+      loop_control:
+        loop_var: instance_vol_id
+      when: instance_ids is defined
+
+    # Gather information about any volume with a tag instance-id and purpose 
+    - ec2_vol_info:
+        aws_access_key: "{{ access_key_id }}"
+        aws_secret_key: "{{ secret_access_key }}"
+        region: "{{ region }}"
+        filters:
+          "tag:instance-id": "{{ instance_id }}"
+      register: instance_vol_info
+
+    # Remove volume
+    - include: delete_vol.yml
+      with_items:
+        - "{{ instance_vol_info.volumes }}"
+      loop_control:
+        loop_var: instance_vol
+      when: instance_vol_info.volumes is defined
+
+    # Get a list of all snapshots filtered by block device and instance id
+    # keeps a maximum of 2 snapshots
+    # rename the oldest snapshot to be the backup
+    - include_tasks: delete_snap.yml
+      vars:
+        block_device: "{{ item.key.split('/')[-1] }}"
+      with_dict: "{{ result.instances[0].block_device_mapping }}"
+  when:
+    - move_storage == "true"
+
+- set_fact:
+    instance_vol_ids: []

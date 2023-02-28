@@ -1,0 +1,96 @@
+---
+
+- set_fact:
+    block_device: 'tags."size"'
+
+- name: Get instance details
+  ec2_instance_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    instance_ids: "{{ instance_id }}"
+  register: ec2_instance
+
+# Filter volumes based on instance name and drive device
+- name: Get instance block volumes
+  ec2_vol_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    filters:
+      "tag:Name": "*{{ instance_name }}.{{ block_device }}*"
+  register: instance_block_vol_info
+
+- set_fact:
+    volume: "{{ instance_block_vol_info.volumes[0] }}"
+  when: instance_block_vol_info.volumes | length > 0
+
+# Filter snapshots based on instance id and drive device
+- name: Get instance block snapshots
+  ec2_snapshot_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    filters:
+      "tag:Name": "*{{ block_device }}*"
+      "tag:instance-id": "*{{ instance_id }}*"
+  register: instance_block_snap_info
+
+- set_fact:
+    latest_snap: "{{ instance_block_snap_info.snapshots | lstest_dict('start_time') }}"
+
+- set_fact:
+    vol_name: "{{ ec2_instance.instances[0].tags.Name }}.{{ block_device }}"
+    device_name: "{{ latest_snap.tags | filter_dict('device-name') }}"
+    instance_id: "{{ latest_snap.tags | filter_dict('instance-id') }}"
+    server_name: "{{ ec2_instance.instances[0].tags.Name }}"
+    env: "{{ ec2_instance.instances[0].tags.environment }}"
+
+# Create volume if it doesn't exists
+- name: Create volume from snapshot
+  ec2_vol:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    instance: "{{ instance_id }}"
+    snapshot: "{{ latest_snap.snapshot_id }}"
+    device_name: "{{ device_name }}"
+    tags:
+      Name: "{{ vol_name }}"
+      device-name: "{{ device_name }}"
+      instance-id: "{{ instance_id }}"
+      server: "{{ server_name }}"
+      environment: "{{ env }}"
+  when: instance_block_vol_info.volumes | length == 0
+
+# Check to see if volume is already attached to the instance
+- block:
+    - debug:
+        msg:
+          - "Volume: {{ volume.tags.Name }} ({{ volume.id }}) already attached to {{ volume.tags.server }} ({{ volume.tags | filter_dict('instance-id') }})"
+      when:
+        - "volume.attachment_set.status == 'attached'"
+        - "volume.attachment_set.device.split('/')[-1] == block_device"
+        - "volume.attachment_set.instance_id == instance_id"
+    
+    # TODO: Decide what to do in the case that the volume is created with the same name and is assigned to another instance
+    # Below block will try to attach it to the instance in scope
+    # - ec2_vol:
+    #     aws_access_key: "{{ access_key_id }}"
+    #     aws_secret_key: "{{ secret_access_key }}"
+    #     region: "{{ region }}"
+    #     instance: "{{ instance_id }}"
+    #     id: "{{ volume.id }}"
+    #     device_name: "{{ device_name }}"
+    #     delete_on_termination: no
+    #     tags:
+    #       Name: "{{ vol_name }}"
+    #       device-name: "{{ device_name }}"
+    #       instance-id: "{{ instance_id }}"
+    #       server: "{{ server_name }}"
+    #       environment: "{{ env }}"
+    #   when:
+    #     - "volume.attachment_set.status != 'attached'"
+    #     - "volume.attachment_set.device.split('/')[-1] != block_device"
+    #     - "volume.attachment_set.instance_id != instance_id"
+  when: instance_block_vol_info.volumes | length > 0

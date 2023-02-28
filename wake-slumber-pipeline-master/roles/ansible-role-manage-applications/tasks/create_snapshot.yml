@@ -1,0 +1,56 @@
+---
+
+- name: Get volume info
+  ec2_vol_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    filters:
+      volume-id: "{{ instance_vol_id }}"
+  register: volume_info
+
+- debug: 
+    msg: "{{ volume_info.volumes[0].attachment_set.device.split('/')[-1] }}"
+
+- set_fact:
+    instance_name: "snap.{{ result.instances[0].tags.Name }}.{{ volume_info.volumes[0].attachment_set.device.split('/')[-1] }}.1"
+    device_name: "{{ volume_info.volumes[0].attachment_set.device }}"
+    server_name: "{{ result.instances[0].tags.Name }}"
+    volume_size: "{{ volume_info.volumes[0].size }}"
+
+- name: Take snapshot
+  ec2_snapshot:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    volume_id: "{{ instance_vol_id }}"
+    description: "{{ instance_name }}"
+    snapshot_tags:
+      Name: "{{ instance_name }}"
+      device-name: "{{ device_name }}"
+      instance-id: "{{ instance_id }}"
+      server: "{{ server_name }}"
+      size: "{{ volume_size }}"
+      volume-id: "{{ instance_vol_id }}"
+      purpose: "slumber"
+    wait: True
+
+# Detach volume
+- ec2_vol:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    id: "{{ instance_vol_id }}"
+    instance: None
+
+- name: Get volume info
+  ec2_vol_info:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    filters:
+      volume-id: "{{ instance_vol_id }}"
+  register: detach_vol_info
+  until: "detach_vol_info.volumes[0].state is not defined"
+  retries: 60
+  delay: 15

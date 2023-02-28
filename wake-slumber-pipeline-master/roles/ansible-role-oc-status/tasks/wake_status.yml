@@ -1,0 +1,15 @@
+---
+# tasks file for ansible-role-oc-status
+
+- name: Login to openshift cli
+  command: "oc login -u={{ oc_user }} -p={{ oc_pass }} -s={{ oc_host }} --insecure-skip-tls-verify"
+  ignore_errors: true
+  no_log: true
+  register: oc_login_results
+  until: '"Login successful" in oc_login_results.stdout'
+  retries: 60
+  delay: 15
+
+- debug:
+    msg: "Successful connection to Openshift cluster API - {{ oc_host }}."
+  when: '"Login successful" in oc_login_results.stdout'

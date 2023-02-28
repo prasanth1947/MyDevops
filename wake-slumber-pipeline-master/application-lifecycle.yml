@@ -1,0 +1,8 @@
+---
+
+- name: FCII | Manage Applications
+  hosts: localhost
+  gather_facts: False
+
+  roles:
+    - ansible-role-manage-applications

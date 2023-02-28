@@ -1,0 +1,8 @@
+---
+
+- name: FCII | Openshift | Status
+  hosts: localhost
+  gather_facts: False
+
+  roles:
+    - ansible-role-oc-status

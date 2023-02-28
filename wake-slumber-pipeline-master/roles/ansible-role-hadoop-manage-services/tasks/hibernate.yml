@@ -1,0 +1,8 @@
+---
+
+# Shell command that connects to ambari server and executes the stop all services script via the control server.
+# - name: Stop Hadoop Processes
+#   shell: "ssh -A -o 'StrictHostKeyChecking=no' jenkins@{{ control_server }} sudo ssh -t -A {{ ambari_ip }} /opt/ibm/fci/utils/fci-hadoop.stop_all_services.sh"
+
+- name: Stop Hadoop Processes
+  shell: "ssh -oStrictHostKeyChecking=no -q jenkins@{{ ambari_ip }} sudo su - -c /opt/ibm/fci/utils/fci-hadoop.stop_all_services.sh"

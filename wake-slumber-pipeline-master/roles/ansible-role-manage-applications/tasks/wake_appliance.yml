@@ -1,0 +1,49 @@
+---
+
+- name: "Move Storage - {{ instance_id }}"
+  block:
+    # Filter snapshots by instance
+    - name: Get instance snapshots
+      ec2_snapshot_info:
+        aws_access_key: "{{ access_key_id }}"
+        aws_secret_key: "{{ secret_access_key }}"
+        region: "{{ region }}"
+        filters:
+          "tag:instance-id": "*{{ instance_id }}*"
+          "tag:purpose": "slumber"
+      register: instance_snap_info
+
+    - set_fact:
+        volume_names: "{{ instance_snap_info | json_query( 'snapshots[*].tags.Name' ) }}"
+        instance_name: "{{ instance_snap_info.snapshots[0].tags.server }}"
+      when: instance_snap_info.snapshots | length > 0
+
+    # Get distinct block devices for instance
+    - set_fact:
+        block_devices: "{{ block_devices | default([]) + [ item.split('.')[-2] ] }}"
+      with_items: "{{ volume_names }}"
+
+    - name: Create volume
+      include: create_vol.yml
+      with_items:
+        - "{{ block_devices | unique }}"
+      loop_control:
+        loop_var: block_device
+      when: block_devices is defined and instance_snap_info.snapshots | length > 0
+  when:
+    - move_storage == "true"
+
+- name: "Start Instances {{ instance_id }}"
+  ec2:
+    aws_access_key: "{{ access_key_id }}"
+    aws_secret_key: "{{ secret_access_key }}"
+    region: "{{ region }}"
+    instance_ids: "{{ instance_id }}"
+    state: running
+    wait: True
+  register: start_instance_result
+
+# Default variable for next instance
+- name: Default var
+  set_fact:
+    block_devices: []
